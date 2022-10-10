@@ -1,0 +1,276 @@
+---
+title: "Parcial-2022"
+output: html_document
+date: "2022-10-05"
+---
+
+**Entrega:** 11 de octubre antes de las 16:00 horas, por correo electrónico con 
+el título fundamentos-parcial, un solo documento por equipo.
+
+**Instrucciones:**
+
+* Tus respuestas deben ser claras y debes explicar 
+los resultados, incluye también tus procedimientos/código de manera ordenada, 
+y el código comentado.
+
+* Se evaluará la presentación de resultados (calidad de las gráficas, tablas, 
+...), revisa la sección de visualización en las notas.
+
+* Se puede realizar individual o en parejas.
+
+* Si tienes preguntas puedes escribirlas en el anuncio de canvas del examen.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+## Análisis exporatorio
+
+### Series de tiempo
+
+Consideramos la ventas semanales de un producto a lo largo de 5 años, 
+transformaremos la variable de ventas utilizando el logaritmo. 
+
+1. Describe que observas en la gráfica.
+
+```{r, fig.width=5.5, fig.height = 3}
+ventas <- read.csv("datos/ventas_semanal.csv")
+head(ventas)
+p1<-ggplot(ventas, aes(x = period, y = log(sales.kg))) + 
+  geom_line(size = 0.3)
+p1
+```
+
+Intentaremos usar suavizamiento para capturar los distintos tipos de variación
+que observamos en la serie. 
+
+2. Utiliza un suavizador *loess* para capturar la tendencia de la serie.
+
+```{r, fig.width=5.5, fig.height = 3}
+mod_1 <- loess(log(sales.kg) ~ as.numeric(period), data = ventas, span = .5, degree = 1)
+
+# calculamos el suavizador y residuales de una vez
+ventas2 <- ventas %>% 
+  mutate(ajuste_1 = fitted(mod_1))  %>% 
+  mutate(res_1 = log(sales.kg) - ajuste_1)
+
+p_tendency<-ggplot(ventas2, aes(x = period, y = log(sales.kg))) + 
+  geom_line(size = 0.3)+  geom_line(aes(x = period, y = ajuste_1,size = 0.3))
+p_tendency
+```
+
+3. Ahora calcula los residuales de este ajuste y descríbelos
+mediante un suavizamiento más fino. Verifica que se ha estimado la mayor
+parte de la tendencia, e intenta capturar la variación estacional de los 
+residuales.
+
+
+```{r, fig.width=5.5, fig.height = 3}
+
+residual_loes_fino <- loess(res_1 ~ as.numeric(period), data = ventas2, span = .1, degree = 1)
+
+residual_loes_ancho <- loess(res_1 ~ as.numeric(period), data = ventas2, span = 1, degree = 1)
+
+# calculamos el suavizador y residuales de una vez
+ventas2 <- ventas2 %>% 
+  mutate(ajuste_res_fino = fitted(residual_loes_fino)) %>%
+  mutate(ajuste_res_ancho = fitted(residual_loes_ancho)) %>%
+  mutate(res_2 = res_1-ajuste_res_fino)
+
+p_res1<-ggplot(ventas2, aes(x = period, y = res_1)) + 
+  geom_line(size = 0.3)
+
+p_season<-ggplot(ventas2, aes(x = period, y = res_1)) + 
+  geom_line(size = 0.3)+  
+  geom_line(aes(x = period, y = ajuste_res_fino,size = 0.3))
+
+p_season+
+   geom_line(aes(x = period, y = ajuste_res_ancho,size = 0.3))
+
+```
+
+4. Grafica los residuales obtenidos después de ajustar el componente 
+estacional para estudiar la componente de mayor frecuencia.
+
+
+
+```{r, fig.width=5.5, fig.height = 3}
+
+p_res2<-ggplot(ventas2, aes(x = period, y = res_2)) + 
+  geom_line(size = 0.3)
+p_res2
+
+```
+
+5. Visualiza el ajuste, genera una gráfica de páneles, en cada uno muestra
+una componente de la serie de tiempo y los residuales.
+
+```{r, fig.width=5.5, fig.height = 3}
+library(gridExtra)
+
+
+grid.arrange(p1, p_tendency,p_res1, p_res1,p_season,p_res2, nrow = 2)
+```
+
+
+### Cereales
+
+Usa el conjunto de datos UScereal (que está en R, en el paquete MASS, ver ?UScereal) para contestar las siguientes preguntas:
+
+1. Describe la distribución del contenido de potasio y de fibra de los cereales. ¿Existe o no dispersión suficiente en estos datos para que la elección de cereal pueda tener algún efecto nutricional (busca una tabla de requerimientos mínimos, por ejemplo)?
+
+# hay que checar en que unidades estan
+
+|Etapa en la vida	|Cantidad recomendada|
+|-|-|
+|Bebes hasta los 6 meses de edad	400 mg|
+|Bebés de 7 a 12 meses|	860 mg|
+|Niños de 1 a 3 años|	2,000 mg|
+|Niños de 4 a 8 años|	2,300 mg|
+|Niños de 9 a 13 años|	2,500 mg|
+|Niñas de 9 a 13 años|	2,300 mg|
+|Adolescentes de 14 a 18 años (niños )|	3,000 mg|
+|Adolescentes de 14 a 18 años (niñas )|	2,300 mg|
+|Adultos mayores de 19 años (hombres)|	3,400 mg|
+|Adultos mayores de 19 años (mujeres)|	2,600 mg|
+|Adolescentes embarazadas|	2,600 mg|
+|Mujeres embarazadas|	2,900 mg|
+|Adolescentes en periodo de lactancia|	2,500 mg|
+|Mujeres en periodo de lactancia|	2,800 mg|
+
+https://ods.od.nih.gov/factsheets/Potassium-DatosEnEspanol/
+
+```{r, fig.width=5.5, fig.height = 3}
+library(MASS)
+data<-UScereal
+
+hist(data$potassium, breaks = seq(min(data$potassium), max(data$potassium), length.out =30))
+hist(data$fibre,breaks = seq(min(data$fibre), max(data$fibre), length.out =30))
+
+```
+Pues en realidad la mayoría de los cereales no están aportanto considerablemente mucho a la ingesta diaria de potasio, solamente 3 cereales estarían aportando significativamente a la ingesta: los 3 All-Bran. Es decir, a menos que elijas alguno de esos 3 outliers, la elección de cereal no importa en cuanto al potasio necesario al día pues no te aporta mucho.
+
+En cuanto a fibra considero que si se aporta de manera importante al menos 7 cereales que aportan aproximadamente 1/3 de la dosis diaria
+
+https://www.gob.mx/salud/articulos/cuanta-fibra-dietetica-se-debe-consumir#:~:text=Por%20eso%2C%20el%20comit%C3%A9%20de,de%20fibra%20diet%C3%A9tica%20al%20d%C3%ADa.
+
+2. Divide los cereales en tres grupos, según los cuantiles 1/3 y 2/3 del contenido de proteína. Grafica pequeños múltiplos para describir la relación entre potasio y fibra para cada uno de los tres grupos. ¿Se trata de la misma relación en cada grupo? ¿En qué son diferentes? ¿Cómo describirías los cereales del grupo con menos contenido de proteína (ve qué cereales son)?
+
+```{r, fig.width=5.5, fig.height = 3}
+
+
+v1<-quantile(data$protein,probs = c(1/3,2/3))
+
+data <-data %>% mutate(prot_group= ifelse(protein <= v1[1],1,
+                                          ifelse(protein <= v1[2],2,3)))
+
+
+graph<-function(data2,bins){
+
+hist(data2$potassium, breaks = seq(min(data$potassium), max(data$potassium), length.out =bins))
+hist(data2$fibre,breaks = seq(min(data$fibre), max(data$fibre), length.out =bins))
+ 
+  
+}
+
+graph(data %>% filter(prot_group==1) ,20)
+graph(data %>% filter(prot_group==2) ,20)
+graph(data %>% filter(prot_group==3) ,20)
+
+
+```
+
+Hay relacion lineal casi casi,
+
+
+## Pruebas de hipótesis
+
+Nos solicitan hacer un análisis con el objetivo de probar un material nuevo para suela de zapatos (el material B) y ver si es comparable con el material que se usa normalmente (el material A).
+
+Nos dan el siguiente conjunto de datos:
+
+```{r}
+zapatos <- read_csv("datos/zapatos-1.csv")
+zapatos
+```
+
+1. Realiza una prueba de hipótesis visual y describe tus conclusiones (cuál es el
+nivel de significancia de la prueba?).
+
+```{r}
+hist((zapatos %>% filter(material==1))$desgaste,10)
+hist((zapatos %>% filter(material==2))$desgaste)
+
+ggplot(zapatos %>% filter(material==1), aes(x=desgaste)) + 
+  geom_density()+ geom_density(zapatos %>% filter(material==2), aes(x=desgaste))
+
+```
+
+2. Realiza una prueba de permutaciones para la diferencia de las medias, escribe la hipótesis nula, la hipótesis alterna y tus conclusiones.
+
+3. Después de discutir con los responsables del proyecto descubrimos que nos 
+faltaba conocer detalles del proceso generador de datos: el experimento se realizó asignando al azar un material a uno de los zapatos y el otro material al otro zapato de cada niño.
+¿Cómo incorporas esta información en la prueba de hipótesis del inciso 2? ¿Cambian
+tus conclusiones?
+
+```{r}
+zapatos <- read_csv("datos/zapatos-2.csv")
+zapatos
+```
+
+
+## Bootstrap
+
+### Estimación
+
+En este ejercicio realizarás la estimación de la [consulta popular 2021](https://ine.mx/conteo-rapido-consulta-popular-2021/). Para ello 
+necesitarás:
+
+* Cómputos [aquí](https://computos.cp2021.ine.mx/votos-distrito/mapa)
+
+* Muestra del conteo rápido usada en la estimación [aquí](https://ine.mx/conteo-rapido-consulta-popular-2021/)
+
+```{r}
+muestra <- read_delim("https://ine.mx/wp-content/uploads/2021/08/Conteos-ConsPop21-Lista-MuestraCalculo.txt", delim = "|", skip = 1) 
+muestra_tidy <- muestra |> 
+  mutate(
+    ID_ESTADO = str_pad(ID_ESTADO, 2, pad = "0"),
+    SECCION = str_pad(SECCION, 4, pad = "0"),
+    ID_CASILLA = str_pad(ID_CASILLA, 2, pad = "0"),
+    ID = str_c(ID_ESTADO, SECCION, TIPO_CASILLA, ID_CASILLA)
+    ) |> 
+  group_by(ESTRATO) |> 
+  mutate(n = n()) |> 
+  ungroup()
+
+computos <- read_delim("datos/20210802-2130_INE-CONSULTA-POPULAR-2021/20210802-2130_COMPUTOS-INE-CP2021.csv", 
+    delim = "|", escape_double = FALSE, trim_ws = TRUE, quote = "\'",
+    skip = 5)
+computos <- computos |> 
+  rename(ID = CLAVE_MRCP) |> 
+  mutate(ESTRATO = str_c(str_pad(ID_ENTIDAD, 2, pad = "0"), 
+                         str_pad(ID_DISTRITO_FEDERAL, 2, pad = "0")),
+         LISTA_NOMINAL = LISTA_NOMINAL_MRCP, 
+         TOTAL = TOTAL_OPINIONES)
+```
+
+1. Utiliza el estimador de razón combinado para estimar el voto en favor
+de cada opicón (sí/no/nulos).
+
+2. Utiliza bootstrap para construir intervalos del 95% de confianza. Compara la longitud de los 3 intervalos y describe que observas.
+
+3. ¿Tus intervalos contienen los valores observados en los cómputos? Explica los
+resultados observados.
+
+### Calibración
+
+Selecciona al menos 50 muestras del mismo tamaño y con el mismo diseño que la 
+muestra utilizada en el conteo rápido. Esto es, selecciona el 
+mismo número de casillas, usando muestreo aleatorio simple dentro de cada estrato.
+
+* Para cada muestra calcula un intervalo del 95% de confianza usando bootstrap.
+
+* Grafica los intervalos y calcula la proporción de ellos que contienen el 
+verdadero valor observado. Describe tus observaciones (evalúa la calibración, 
+compara con el intervalo obtenido en el ejercicio anterior).
