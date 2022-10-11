@@ -199,25 +199,63 @@ zapatos
 nivel de significancia de la prueba?).
 
 ```{r}
-hist((zapatos %>% filter(material==1))$desgaste,10)
-hist((zapatos %>% filter(material==2))$desgaste)
+set.seed(2)
+sample_1<-zapatos %>% filter(material==1) 
 
-ggplot(zapatos %>% filter(material==1), aes(x=desgaste)) + 
-  geom_density()+ geom_density(zapatos %>% filter(material==2), aes(x=desgaste))
+plot_sample<-function(x){
+sample_1<-zapatos %>% filter(material==x) 
+p1<-data.frame(sample(sample_1$desgaste, 10, replace=T))
+names(p1)<-"desgaste"
+p1<-ggplot(p1, aes(x=desgaste)) + 
+  geom_density(size = 1)
+p1
+}
+
+
+grid.arrange(plot_sample(1),plot_sample(1),plot_sample(1),plot_sample(1),
+             plot_sample(1),plot_sample(1),plot_sample(1),plot_sample(1),
+             plot_sample(1),plot_sample(1),plot_sample(1),plot_sample(1),
+             plot_sample(1),plot_sample(1),plot_sample(1),plot_sample(1),
+             plot_sample(1),plot_sample(2),plot_sample(1),plot_sample(1),nrow =5)
+
 
 ```
+El nivel de significancia de la prueba es de 1/20
+la verdad no me atreveria a rechazar la hipotesis nula
+
 
 2. Realiza una prueba de permutaciones para la diferencia de las medias, escribe la hipótesis nula, la hipótesis alterna y tus conclusiones.
+
+```{r} 
+
+perms<-function(){
+permutations<-zapatos %>% 
+  mutate(permu=sample(c(1,2), n(), prob =c(.5,.5), replace=T))
+  
+mean1<-mean((permutations %>% filter(permu==1))$desgaste)
+mean2<-mean((permutations %>% filter(permu==2))$desgaste)
+mean1-mean2
+}
+permutations_dif<-data.frame(sapply(seq_len(200), function(x) perms()))
+names(permutations_dif)<-"dif"
+
+
+#Ahora calculo diferencia de medias de la muestra:
+mean1<-mean((zapatos %>% filter(material==1))$desgaste)
+mean2<-mean((zapatos %>% filter(material==2))$desgaste)
+mean_muestral<-mean1-mean2
+ggplot(permutations_dif,aes(x=dif))+
+               geom_histogram()+ geom_vline(aes(xintercept=mean_muestral),
+            color="blue", linetype="dashed", size=1)
+```
+
 
 3. Después de discutir con los responsables del proyecto descubrimos que nos 
 faltaba conocer detalles del proceso generador de datos: el experimento se realizó asignando al azar un material a uno de los zapatos y el otro material al otro zapato de cada niño.
 ¿Cómo incorporas esta información en la prueba de hipótesis del inciso 2? ¿Cambian
 tus conclusiones?
 
-```{r}
-zapatos <- read_csv("datos/zapatos-2.csv")
-zapatos
-```
+Nos cae como anillo al dedo pues el contrafactual es muy legitimo: el otro zapato del mismo niño.
 
 
 ## Bootstrap
