@@ -1,57 +1,53 @@
 ---
-title: "Parcial-2022"
+title: "Fundamentos Examen Parcial 2022"
+author: "Marco Ramos & Ricardo Granillo"
 output: html_document
-date: "2022-10-05"
+date: "2022-10-11"
 ---
 
-**Entrega:** 11 de octubre antes de las 16:00 horas, por correo electrónico con 
-el título fundamentos-parcial, un solo documento por equipo.
+**Entrega:** 11 de octubre antes de las 16:00 horas, por correo electrónico con el título fundamentos-parcial, un solo documento por equipo.
 
 **Instrucciones:**
 
 * Tus respuestas deben ser claras y debes explicar 
-los resultados, incluye también tus procedimientos/código de manera ordenada, 
-y el código comentado.
+los resultados, incluye también tus procedimientos/código de manera ordenada, y el código comentado.
 
-* Se evaluará la presentación de resultados (calidad de las gráficas, tablas, 
-...), revisa la sección de visualización en las notas.
+* Se evaluará la presentación de resultados (calidad de las gráficas, tablas,...), revisa la sección de visualización en las notas.
 
 * Se puede realizar individual o en parejas.
 
 * Si tienes preguntas puedes escribirlas en el anuncio de canvas del examen.
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r, echo=F,message=FALSE,warning=FALSE}
+library(ggplot2)
+library(dplyr)
+library(MASS)
 library(tidyverse)
-library(kableExtra)
 ```
 
-## Análisis exporatorio
+# Análisis exporatorio
 
-### Series de tiempo
+## Series de tiempo
 
 Consideramos la ventas semanales de un producto a lo largo de 5 años, 
 transformaremos la variable de ventas utilizando el logaritmo. 
 
-1. Describe que observas en la gráfica.
+### 1. Describe que observas en la gráfica.
 
-```{r, fig.width=5.5, fig.height = 3}
+```{r, echo=T,message=FALSE,warning=FALSE,out.width = "70%",fig.align = 'center''}
 ventas <- read.csv("datos/ventas_semanal.csv")
 head(ventas)
 p1<-ggplot(ventas, aes(x = period, y = log(sales.kg))) + 
-  geom_line(size = 0.3)
+  geom_line(size = 0.3)+ theme_minimal()
 p1
 ```
 
-En la gráfica podemos observar a simple vista que existe una tendencia temporal a la alza y existe otra tendencia un poco ciclica que se repite cada x periodos. 
+Lo primero que se puede notar al observar la gráfica es que existe una tendencia que podemos asociar con un componente temporal creciente, es decir se desplaza a través del tiempo "al alza" (presenta una pendiente positiva). En segunda instancia se puede observar otra tendencia que podríamos pensar pertenece al componente cíclico ya que se repite un patrón con un intervalo de periodos fijos. Dada nuestra exploración, consideramos que es viable intentar utilizar algún tipo de suavizamiento para capturar las distintos variaciones que observamos en la serie.
 
 
-Intentaremos usar suavizamiento para capturar los distintos tipos de variación
-que observamos en la serie. 
+### 2. Utiliza un suavizador *loess* para capturar la tendencia de la serie.
 
-2. Utiliza un suavizador *loess* para capturar la tendencia de la serie.
+```{r, echo=T,message=FALSE,warning=FALSE,out.width = "70%",fig.align = 'center'}
 
-```{r, fig.width=5.5, fig.height = 3}
 mod_1 <- loess(log(sales.kg) ~ as.numeric(period), data = ventas, span = .5, degree = 1)
 
 # calculamos el suavizador y residuales de una vez
@@ -60,17 +56,23 @@ ventas2 <- ventas %>%
   mutate(res_1 = log(sales.kg) - ajuste_1)
 
 p_tendency<-ggplot(ventas2, aes(x = period, y = log(sales.kg))) + 
-  geom_line(size = 0.3)+  geom_line(aes(x = period, y = ajuste_1,size = 0.3))
+  geom_line(size = 0.5)+  geom_line(aes(x = period, y = ajuste_1),size = 1,colour= "blue")+ theme_minimal()
 p_tendency
 ```
 
-3. Ahora calcula los residuales de este ajuste y descríbelos
-mediante un suavizamiento más fino. Verifica que se ha estimado la mayor
+
+El gráfico nos permite ver la forma que captura nuestro suavizador, la tendencia de la serie queda resaltada por la línea azul.
+
+
+### 3. Ahora calcula los residuales de este ajuste y descríbelos
+
+
+Mediante un suavizamiento más fino. Verifica que se ha estimado la mayor
 parte de la tendencia, e intenta capturar la variación estacional de los 
 residuales.
 
 
-```{r, fig.width=5.5, fig.height = 3}
+```{r, echo=T,message=FALSE,warning=FALSE,out.width = "70%",fig.align = 'center'}
 
 residual_loes_fino <- loess(res_1 ~ as.numeric(period), data = ventas2, span = .1, degree = 1)
 
@@ -83,37 +85,38 @@ ventas2 <- ventas2 %>%
   mutate(res_2 = res_1-ajuste_res_fino)
 
 p_res1<-ggplot(ventas2, aes(x = period, y = res_1)) + 
-  geom_line(size = 0.3)
+  geom_line(size = 0.3)+ theme_minimal()
 
 p_season<-ggplot(ventas2, aes(x = period, y = res_1)) + 
   geom_line(size = 0.3)+  
-  geom_line(aes(x = period, y = ajuste_res_fino,size = 0.3))
+  geom_line(aes(x = period, y = ajuste_res_fino),size = 0.3, colour ="Blue")+ theme_minimal()
 
 p_season+
-   geom_line(aes(x = period, y = ajuste_res_ancho,size = 0.3))
+   geom_line(aes(x = period, y = ajuste_res_ancho),size = 0.75, colour = "Green")+ theme_minimal()
 
 ```
 
-Con la linea de en medio, centrada en 0 hemos verificado que ya no hay tendencia, sino que solo queda el componente cíclico.
-
-4. Grafica los residuales obtenidos después de ajustar el componente 
-estacional para estudiar la componente de mayor frecuencia.
+En el gráfico podemos observar con la línea verde (centrada en cero) que ya no hay tendencia. La incorporación de esta línea nos funciona como un verificador para asegurar eliminamos la tendencia y con ello únicamente nos queda el componente cíclico de la serie.
 
 
-```{r, fig.width=5.5, fig.height = 3}
+### 4. Grafica los residuales obtenidos después de ajustar el componente estacional para estudiar la componente de mayor frecuencia.
+
+
+```{r, echo=T,message=FALSE,warning=FALSE,out.width = "70%",fig.align = 'center'}
 
 p_res2<-ggplot(ventas2, aes(x = period, y = res_2)) + 
-  geom_line(size = 0.3)
+  geom_line(size = 0.3) + theme_minimal()
 p_res2
 
 ```
 
-Después de las dos correcciones, ahora queda puro ruido blanco. 
 
-5. Visualiza el ajuste, genera una gráfica de páneles, en cada uno muestra
-una componente de la serie de tiempo y los residuales.
+El objetivo del gráfico anterior es mostrar lo que obtenemos con las dos correcciones. Nuestra gráfica nos muestra únicamente su componente aleatorio conocido como ruido blanco, confirmando el tratamiento de la serie. 
 
-```{r, fig.width=5.5, fig.height = 3}
+
+### 5. Visualiza el ajuste, genera una gráfica de páneles, en cada uno muestra una componente de la serie de tiempo y los residuales.
+
+```{r, echo=T,message=FALSE,warning=FALSE,out.width = "70%",fig.align = 'center'}
 library(gridExtra)
 
 
@@ -121,13 +124,15 @@ grid.arrange(p1, p_tendency,p_res1, p_res1,p_season,p_res2, nrow = 2)
 ```
 
 
-### Cereales
+
+## Cereales
+
 
 Usa el conjunto de datos UScereal (que está en R, en el paquete MASS, ver ?UScereal) para contestar las siguientes preguntas:
 
-1. Describe la distribución del contenido de potasio y de fibra de los cereales. ¿Existe o no dispersión suficiente en estos datos para que la elección de cereal pueda tener algún efecto nutricional (busca una tabla de requerimientos mínimos, por ejemplo)?
 
-# hay que checar en que unidades estan
+### 1. Describe la distribución del contenido de potasio y de fibra de los cereales. ¿Existe o no dispersión suficiente en estos datos para que la elección de cereal pueda tener algún efecto nutricional (busca una tabla de requerimientos mínimos, por ejemplo)?
+
 
 |Etapa en la vida	|Cantidad recomendada|
 |-|-|
@@ -146,26 +151,35 @@ Usa el conjunto de datos UScereal (que está en R, en el paquete MASS, ver ?USce
 |Adolescentes en periodo de lactancia|	2,500 mg|
 |Mujeres en periodo de lactancia|	2,800 mg|
 
+Para consultar la información puede acceder al siguiente link:
 https://ods.od.nih.gov/factsheets/Potassium-DatosEnEspanol/
 
-```{r, fig.width=5.5, fig.height = 3}
-library(MASS)
+```{r, echo=T,message=FALSE,warning=FALSE,out.width = "70%",fig.align = 'center'}
+
 data<-UScereal
 
 hist(data$potassium, breaks = seq(min(data$potassium), max(data$potassium), length.out =30))
 hist(data$fibre,breaks = seq(min(data$fibre), max(data$fibre), length.out =30))
 
 ```
-Pues en realidad la mayoría de los cereales no están aportanto considerablemente mucho a la ingesta diaria de potasio, solamente 3 cereales estarían aportando significativamente a la ingesta: los 3 All-Bran. Es decir, a menos que elijas alguno de esos 3 outliers, la elección de cereal no importa en cuanto al potasio necesario al día pues no te aporta mucho.
 
-En cuanto a fibra considero que si se aporta de manera importante al menos 7 cereales que aportan aproximadamente 1/3 de la dosis diaria.
 
+Los resultados nos resultan interesante al entender lo que aportan a la ingesta diaria de potasio y de fibra. 
+
+
+* Primeramente, respecto al potasio lo que observamos es que en realidad la mayoría de los cereales no están aportando mucho a la ingesta diaria. Solamente 3 cereales son los que podemos argumentar están aportando significativamente a la ingesta (los tres son de la marca All-Bran). Esto lo podemos interpretar pensando en que, a menos que elijas alguno de esos tres cereales “outliers”, la elección de cereal no es relevante en cuanto al potasio necesario al día. En 
+
+
+*En segundo lugar analizando la cantidad de fibra observamos que los cereales sí aportan de manera significativa en la ingesta de fibra. Esto lo podemos argumentar ya que, de la muestra, mínimo siete están aportando aproximadamente un tercio de la dosis diaria.
+
+
+Fuente consultada para la ingesta deseable de fibra:
 https://www.gob.mx/salud/articulos/cuanta-fibra-dietetica-se-debe-consumir#:~:text=Por%20eso%2C%20el%20comit%C3%A9%20de,de%20fibra%20diet%C3%A9tica%20al%20d%C3%ADa.
 
 
-2. Divide los cereales en tres grupos, según los cuantiles 1/3 y 2/3 del contenido de proteína. Grafica pequeños múltiplos para describir la relación entre potasio y fibra para cada uno de los tres grupos. ¿Se trata de la misma relación en cada grupo? ¿En qué son diferentes? ¿Cómo describirías los cereales del grupo con menos contenido de proteína (ve qué cereales son)?
+### 2. Divide los cereales en tres grupos, según los cuantiles 1/3 y 2/3 del contenido de proteína. Grafica pequeños múltiplos para describir la relación entre potasio y fibra para cada uno de los tres grupos. ¿Se trata de la misma relación en cada grupo? ¿En qué son diferentes? ¿Cómo describirías los cereales del grupo con menos contenido de proteína (ve qué cereales son)?
 
-```{r, fig.width=5.5, fig.height = 3}
+```{r, echo=T,message=FALSE,warning=FALSE,out.width = "70%",fig.align = 'center}
 
 
 v1<-quantile(data$protein,probs = c(1/3,2/3))
@@ -189,26 +203,28 @@ graph(data %>% filter(prot_group==3) ,20)
 
 ```
 
-Hay relacion lineal casi casi,
+
+Concluimos que estamos cerca del valor que nos permite decir que se observa una relación lineal.
 
 
 ## Pruebas de hipótesis
 
-Nos solicitan hacer un análisis con el objetivo de probar un material nuevo para suela de zapatos (el material B) y ver si es comparable con el material que se usa normalmente (el material A).
+Nos solicitan hacer un análisis con el objetivo de probar un material nuevo para suela de zapatos (el material B) y ver si es comparable con el material que se usa normalmente (el material A). 
 
 Nos dan el siguiente conjunto de datos:
 
-```{r}
-zapatos <- read_csv("datos/zapatos-1.csv")
+```{r , echo=T, eval=F,message=FALSE,warning=FALSE,out.width = "70%",fig.align = 'center''}
+zapatos <- read.csv("datos/zapatos-1.csv")
 zapatos
 ```
 
-1. Realiza una prueba de hipótesis visual y describe tus conclusiones (cuál es el
-nivel de significancia de la prueba?).
+### 1. Realiza una prueba de hipótesis visual y describe tus conclusiones (cuál es el nivel de significancia de la prueba?).
+
 
 Para este ejercicio hemos decidido hacer una prueba de permutación visual
 
-```{r}
+
+```{r , echo=T,message=FALSE,warning=FALSE,out.width = "70%",fig.align = 'center}
 #Creo una funcion para replicar cada permutación y graficarla
 perms<-function(){
 permutations<-zapatos %>% 
@@ -233,17 +249,23 @@ grid.arrange(perms(),perms(),perms(),perms(),
 
 ```
 
-El nivel de significancia de la prueba es de 1/20
-la verdad no me atreveria a rechazar la hipotesis nula, las graficas parece que vienen de la misma distribución todas.
+De lo que podemos observar en los diferentes diagramas no podemos concluir que es posible rechazar la hipótesis nula. El motivo de esta decisión es que todas parecen provenir de la misma distribución. Además el nivel de significancia de la prueba es muy pequeño (1/20).
 
 
-2. Realiza una prueba de permutaciones para la diferencia de las medias, escribe la hipótesis nula, la hipótesis alterna y tus conclusiones.
+
+### 2. Realiza una prueba de permutaciones para la diferencia de las medias, escribe la hipótesis nula, la hipótesis alterna y tus conclusiones.
+
+
+Definimos nuestras hipótesis de la siguiente manera:
+
 
 $$H_o:\mu_1-\mu_2=0$$
 
+
 $$H_o:\mu_1-\mu_2\neq0$$
 
-```{r} 
+
+```{r, echo=T,message=FALSE,warning=FALSE,out.width = "70%",fig.align = 'center} 
 
 # Creo una función de permutaciones para calcular la media
 perms<-function(){
@@ -270,13 +292,15 @@ ggplot(permutations_dif,aes(x=dif))+
                geom_histogram()+ theme_classic()+ geom_vline(aes(xintercept=mean_muestral),
             color="red", linetype="dashed", size=1)
 ```
-Evidentemente no podemos rechazar la hipotesis nula, tan solo hay que ver la grafica de las medias de las permutaciones para ver que la media muestral queda muy cercana al 0 y dentro de la zona de más densidad de la distribución de medias.
 
-3. Después de discutir con los responsables del proyecto descubrimos que nos 
-faltaba conocer detalles del proceso generador de datos: el experimento se realizó asignando al azar un material a uno de los zapatos y el otro material al otro zapato de cada niño. ¿Cómo incorporas esta información en la prueba de hipótesis del inciso 2? ¿Cambian
-tus conclusiones?
 
-Nos cae como anillo al dedo pues el contrafactual es muy legitimo: el otro zapato del mismo niño. Sin embargo, no cambian nuestras conclusiones. Al contrario, las sostenemos de manera más fuerte pues ahora los argumentos que tenemos para no rechazar la hipótesis nula vienen de un diseño experimental.
+De observar el histograma anterior es evidente que no podemos rechazar la hipótesis nula. El motivo es que la media muestral queda muy cercana al 0 y dentro de la zona de más densidad de la distribución de medias.
+
+
+### 3. Después de discutir con los responsables del proyecto descubrimos que nos faltaba conocer detalles del proceso generador de datos: el experimento se realizó asignando al azar un material a uno de los zapatos y el otro material al otro zapato de cada niño. ¿Cómo incorporas esta información en la prueba de hipótesis del inciso 2? ¿Cambian tus conclusiones?
+
+
+Este suceso podríamos decir de forma coloquial que "nos cae como anillo al dedo" debido a que el contrafactual es adecuado (utilizar el otro zapato del mismo niño). Sin embargo, de forma contundente debemos decir que no cambian nuestras conclusiones. Incluso podemos decir que las sostenemos de manera más "fuerte", ya que, los argumentos que tenemos para no rechazar la hipótesis nula vienen del diseño experimental.
 
 
 ## Bootstrap
@@ -290,7 +314,8 @@ necesitarás:
 
 * Muestra del conteo rápido usada en la estimación [aquí](https://ine.mx/conteo-rapido-consulta-popular-2021/)
 
-```{r}
+```{r, echo=T, eval=F,message=FALSE,warning=FALSE,out.width = "70%",fig.align = 'center'}
+
 muestra <- read_delim("https://ine.mx/wp-content/uploads/2021/08/Conteos-ConsPop21-Lista-MuestraCalculo.txt", delim = "|", skip = 1) 
 muestra_tidy <- muestra %>% 
   mutate(
@@ -317,10 +342,10 @@ computos <- computos %>%
  # ungroup()
 ```
 
-1. Utiliza el estimador de razón combinado para estimar el voto en favor
-de cada opicón (sí/no/nulos).
+### 1. Utiliza el estimador de razón combinado para estimar el voto en favor de cada opción (sí/no/nulos).
 
-```{r}
+
+```{r, echo=T,message=FALSE,warning=FALSE,out.width = "70%",fig.align = 'center}
 # A partir de la muestra:
 # No uso weights
 survey_sample <- muestra_tidy %>% 
@@ -335,9 +360,9 @@ estadisticos_sample
 ```
 
 
-2. Utiliza bootstrap para construir intervalos del 95% de confianza. Compara la longitud de los 3 intervalos y describe que observas.
+### 2. Utiliza bootstrap para construir intervalos del 95% de confianza. Compara la longitud de los 3 intervalos y describe que observas.
 
-```{r}
+```{r, echo=T,message=FALSE,warning=FALSE,out.width = "70%",fig.align = 'center'}
 # A partir de la muestra:
 set.seed(1111)
 intervalos_bootsrap<-
@@ -361,13 +386,13 @@ intervalos_bootsrap[9]-intervalos_bootsrap[8]
 
 ```
 
-Notamos que hay mayoría aplastante del SI, luego del NO y por último del NULO. Sin embargo en cuanto a la longitud del intervalo, el del SI y el NULO son similares en tamaño y un poco más amplios que el del NO que es muy pequeño.
+Los resultados son bastante contundentes e interesantes. Primeramente sale a relucir que hay una mayoría aplastante del SI. En segundo lugar, tenemos al NO y por último la opción del NULO. Como comentario adicional, nos resulta llamativo los resultados que nos dieron en cuanto a la longitud de los intervalos. Por una parte, los intervalos del SI y del NULO son similares en tamaño y se podría decir que en cierta forma un poco más amplios que el del NO. Para nosotros el intervalo asociado al NO nos resalta que sea muy pequeño/poco amplio.
 
 
-3. ¿Tus intervalos contienen los valores observados  en los cómputos? Explica los
-resultados observados.
+### 3. ¿Tus intervalos contienen los valores observados  en los cómputos? Explica los resultados observados.
 
-```{r}
+
+```{r, echo=T,message=FALSE,warning=FALSE,out.width = "70%",fig.align = 'center'}
 # A partir de la muestra:hts?
 # DUDA,¿QUe ponemos en weig
 survey_population <- computos %>% 
@@ -383,15 +408,17 @@ estadisticos_pop<-survey_population %>%
 estadisticos_pop
 ```
 
-En realidad solamente el intervalo del NO (que de hecho era el más acotado) contiene a su estimador.
 
-### Calibración
+Lo que podemos concluir es que en realidad solamente el intervalo del NO contiene a su estimador. Es interesante debido a que, de hecho, era el más acotado de todos.
 
-Selecciona al menos 50 muestras del mismo tamaño y con el mismo diseño que la 
-muestra utilizada en el conteo rápido. Esto es, selecciona el 
-mismo número de casillas, usando muestreo aleatorio simple dentro de cada estrato.
 
-```{r}
+## Calibración
+
+
+Selecciona al menos 50 muestras del mismo tamaño y con el mismo diseño que la muestra utilizada en el conteo rápido. Esto es, selecciona el mismo número de casillas, usando muestreo aleatorio simple dentro de cada estrato.
+
+
+```{r, echo=T,message=FALSE,warning=FALSE,out.width = "70%",fig.align = 'center'}
 
 # Primer paso, creo el codigo para recrear cada muestra estratificada
 #Creo catalogo de estrato y n
@@ -403,7 +430,8 @@ computos<-merge(computos,strata_catalogue, by="ESTRATO")
 
 ```
 
-```{r}
+
+```{r, echo=T,message=FALSE,warning=FALSE,out.width = "70%",fig.align = 'center'}
 #Creo el codigo para recrear 1 muestra
 # si corro esto 50 veces obtengo 50 muestras
 stratified <- computos %>%
@@ -412,8 +440,11 @@ stratified <- computos %>%
 
 ```
 
-* Para cada muestra calcula un intervalo del 95% de confianza usando bootstrap.
-```{r}
+
+### Para cada muestra calcula un intervalo del 95% de confianza usando bootstrap.
+
+
+```{r, echo=T,message=FALSE,warning=FALSE,out.width = "70%",fig.align = 'center'}
 
 crea_muestra_e_intervalo_bootrsap<-function(){
 #Creo el codigo para recrear 1 muestra
@@ -443,11 +474,11 @@ intervalos_muestras[1:10] <- sapply(intervalos_muestras[1:10],as.numeric)
 kable(intervalos_muestras)
 ```
 
-* Grafica los intervalos y calcula la proporción de ellos que contienen el 
-verdadero valor observado. Describe tus observaciones (evalúa la calibración, 
-compara con el intervalo obtenido en el ejercicio anterior).
 
-```{r}
+### Grafica los intervalos y calcula la proporción de ellos que contienen el verdadero valor observado. Describe tus observaciones (evalúa la calibración, compara con el intervalo obtenido en el ejercicio anterior).
+
+
+```{r, echo=T,message=FALSE,warning=FALSE,out.width = "70%",fig.align = 'center'}
 
 # Proporción SI
 ggplot(intervalos_muestras, aes(id,p_si)) + 
@@ -462,7 +493,8 @@ sum(p$dentro)/nrow(intervalos_muestras)
 
 ```
 
-```{r}
+
+```{r, echo=T,message=FALSE,warning=FALSE,out.width = "70%",fig.align = 'center'}
 
 # Proporción NO
 ggplot(intervalos_muestras, aes(id,p_no)) + 
@@ -477,7 +509,8 @@ sum(p$dentro)/nrow(intervalos_muestras)
 
 ```
 
-```{r}
+
+```{r, echo=T,message=FALSE,warning=FALSE,out.width = "70%",fig.align = 'center'}
 
 # Proporción NULO
 ggplot(intervalos_muestras, aes(id,p_nulo)) + 
@@ -492,4 +525,4 @@ sum(p$dentro)/nrow(intervalos_muestras)
 
 ```
 
-Reflexion: Para que realmente estos intervalos sean útiles y atrapen al estimador la mayoría de las veces, debemos aceptar que deben ser más amplios. En el ejercicio anterior ocurrio que no estabamos capturando 2 de los 3 estadísticos porque el intervalo de confianza está ajustado con un valor p del .05 lo que hace que sean intervalos muy estrechos.
+Reflexión: Para que realmente podamos pensar que estos intervalos sean útiles y contengan al estimador la mayoría de las veces, debemos aceptar que deben ser más “amplios”. Durante el ejercicio anterior nos sucedió que no se estaba capturando a dos de los tres estadísticos. Esto fue así debido a que el intervalo de confianza está ajustado con un valor-p del 0.05 estableciendo con ello intervalos muy estrechos.
