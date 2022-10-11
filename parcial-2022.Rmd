@@ -22,6 +22,9 @@ library(ggplot2)
 library(dplyr)
 library(MASS)
 library(tidyverse)
+library(survey)
+library(srvyr)
+library(rsample)
 ```
 
 # Análisis exporatorio
@@ -371,8 +374,7 @@ intervalos_bootsrap<-
   srvyr::summarise(p_si = survey_mean(p_si, vartype =  "ci"),
                    p_no = survey_mean(p_no, vartype =  "ci"),
                    p_nulo = survey_mean(p_nulo, vartype =  "ci"))
-# El CI a priori es del 95% de confianza
-# ¿Con 500 replicates está bien?
+
 
 #Intervalos
 intervalos_bootsrap
@@ -393,8 +395,7 @@ Los resultados son bastante contundentes e interesantes. Primeramente sale a rel
 
 
 ```{r, echo=T,message=FALSE,warning=FALSE,out.width = "70%",fig.align = 'center'}
-# A partir de la muestra:hts?
-# DUDA,¿QUe ponemos en weig
+
 survey_population <- computos %>% 
     as_survey_design(ids = ID, strata = "ESTRATO") %>% 
   mutate(p_si=OPINION_SI/TOTAL_OPINIONES,
@@ -432,7 +433,7 @@ computos<-merge(computos,strata_catalogue, by="ESTRATO")
 
 
 ```{r, echo=T,message=FALSE,warning=FALSE,out.width = "70%",fig.align = 'center'}
-#Creo el codigo para recrear 1 muestra
+#Creo el código para recrear 1 muestra
 # si corro esto 50 veces obtengo 50 muestras
 stratified <- computos %>%
   group_by(ESTRATO) %>%
