@@ -23,6 +23,7 @@ y el código comentado.
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
+library(kableExtra)
 ```
 
 ## Análisis exporatorio
@@ -41,6 +42,9 @@ p1<-ggplot(ventas, aes(x = period, y = log(sales.kg))) +
   geom_line(size = 0.3)
 p1
 ```
+
+En la gráfica podemos observar a simple vista que existe una tendencia temporal a la alza y existe otra tendencia un poco ciclica que se repite cada x periodos. 
+
 
 Intentaremos usar suavizamiento para capturar los distintos tipos de variación
 que observamos en la serie. 
@@ -90,9 +94,10 @@ p_season+
 
 ```
 
+Con la linea de en medio, centrada en 0 hemos verificado que ya no hay tendencia, sino que solo queda el componente cíclico.
+
 4. Grafica los residuales obtenidos después de ajustar el componente 
 estacional para estudiar la componente de mayor frecuencia.
-
 
 
 ```{r, fig.width=5.5, fig.height = 3}
@@ -102,6 +107,8 @@ p_res2<-ggplot(ventas2, aes(x = period, y = res_2)) +
 p_res2
 
 ```
+
+Después de las dos correcciones, ahora queda puro ruido blanco. 
 
 5. Visualiza el ajuste, genera una gráfica de páneles, en cada uno muestra
 una componente de la serie de tiempo y los residuales.
@@ -151,9 +158,10 @@ hist(data$fibre,breaks = seq(min(data$fibre), max(data$fibre), length.out =30))
 ```
 Pues en realidad la mayoría de los cereales no están aportanto considerablemente mucho a la ingesta diaria de potasio, solamente 3 cereales estarían aportando significativamente a la ingesta: los 3 All-Bran. Es decir, a menos que elijas alguno de esos 3 outliers, la elección de cereal no importa en cuanto al potasio necesario al día pues no te aporta mucho.
 
-En cuanto a fibra considero que si se aporta de manera importante al menos 7 cereales que aportan aproximadamente 1/3 de la dosis diaria
+En cuanto a fibra considero que si se aporta de manera importante al menos 7 cereales que aportan aproximadamente 1/3 de la dosis diaria.
 
 https://www.gob.mx/salud/articulos/cuanta-fibra-dietetica-se-debe-consumir#:~:text=Por%20eso%2C%20el%20comit%C3%A9%20de,de%20fibra%20diet%C3%A9tica%20al%20d%C3%ADa.
+
 
 2. Divide los cereales en tres grupos, según los cuantiles 1/3 y 2/3 del contenido de proteína. Grafica pequeños múltiplos para describir la relación entre potasio y fibra para cada uno de los tres grupos. ¿Se trata de la misma relación en cada grupo? ¿En qué son diferentes? ¿Cómo describirías los cereales del grupo con menos contenido de proteína (ve qué cereales son)?
 
@@ -198,36 +206,46 @@ zapatos
 1. Realiza una prueba de hipótesis visual y describe tus conclusiones (cuál es el
 nivel de significancia de la prueba?).
 
-```{r}
-set.seed(2)
-sample_1<-zapatos %>% filter(material==1) 
+Para este ejercicio hemos decidido hacer una prueba de permutación visual
 
-plot_sample<-function(x){
-sample_1<-zapatos %>% filter(material==x) 
-p1<-data.frame(sample(sample_1$desgaste, 10, replace=T))
-names(p1)<-"desgaste"
-p1<-ggplot(p1, aes(x=desgaste)) + 
-  geom_density(size = 1)
-p1
+```{r}
+#Creo una funcion para replicar cada permutación y graficarla
+perms<-function(){
+permutations<-zapatos %>% 
+  mutate(material=sample(c(1,2), n(), prob =c(.5,.5), replace=T))
+permutations$material<-as.factor(permutations$material)
+p <- ggplot(permutations, aes(x=material, y=desgaste,fill=material)) + 
+  geom_boxplot()  
+p+scale_color_manual(values=c( "#E69F00", "#56B4E9"))+ theme(legend.position="none")
 }
 
+# Creo la grafica muestral
+zapatos$material<-as.factor(zapatos$material)
+original<- ggplot(zapatos, aes(x=material, y=desgaste,fill=material)) + 
+  geom_boxplot()+scale_color_manual(values=c( "#E69F00", "#56B4E9"))+ theme(legend.position="none")
 
-grid.arrange(plot_sample(1),plot_sample(1),plot_sample(1),plot_sample(1),
-             plot_sample(1),plot_sample(1),plot_sample(1),plot_sample(1),
-             plot_sample(1),plot_sample(1),plot_sample(1),plot_sample(1),
-             plot_sample(1),plot_sample(1),plot_sample(1),plot_sample(1),
-             plot_sample(1),plot_sample(2),plot_sample(1),plot_sample(1),nrow =5)
-
+# Elaboro un grid
+grid.arrange(perms(),perms(),perms(),perms(),
+             perms(),perms(),perms(),perms(),
+             perms(),perms(),perms(),perms(),
+             perms(),perms(),perms(),perms(),
+             perms(),perms(),original,perms(),nrow =5)
 
 ```
+
 El nivel de significancia de la prueba es de 1/20
-la verdad no me atreveria a rechazar la hipotesis nula
+la verdad no me atreveria a rechazar la hipotesis nula, las graficas parece que vienen de la misma distribución todas.
 
 
 2. Realiza una prueba de permutaciones para la diferencia de las medias, escribe la hipótesis nula, la hipótesis alterna y tus conclusiones.
 
+$$H_o:\mu_1-\mu_2=0$$
+
+$$H_o:\mu_1-\mu_2\neq0$$
+
 ```{r} 
 
+# Creo una función de permutaciones para calcular la media
 perms<-function(){
 permutations<-zapatos %>% 
   mutate(permu=sample(c(1,2), n(), prob =c(.5,.5), replace=T))
@@ -236,6 +254,8 @@ mean1<-mean((permutations %>% filter(permu==1))$desgaste)
 mean2<-mean((permutations %>% filter(permu==2))$desgaste)
 mean1-mean2
 }
+
+# Corro 200 permutaciones
 permutations_dif<-data.frame(sapply(seq_len(200), function(x) perms()))
 names(permutations_dif)<-"dif"
 
@@ -244,18 +264,19 @@ names(permutations_dif)<-"dif"
 mean1<-mean((zapatos %>% filter(material==1))$desgaste)
 mean2<-mean((zapatos %>% filter(material==2))$desgaste)
 mean_muestral<-mean1-mean2
-ggplot(permutations_dif,aes(x=dif))+
-               geom_histogram()+ geom_vline(aes(xintercept=mean_muestral),
-            color="blue", linetype="dashed", size=1)
-```
 
+# Grafico un histograma con las 200 permutaciones y con rojo marco la media muestral original
+ggplot(permutations_dif,aes(x=dif))+
+               geom_histogram()+ theme_classic()+ geom_vline(aes(xintercept=mean_muestral),
+            color="red", linetype="dashed", size=1)
+```
+Evidentemente no podemos rechazar la hipotesis nula, tan solo hay que ver la grafica de las medias de las permutaciones para ver que la media muestral queda muy cercana al 0 y dentro de la zona de más densidad de la distribución de medias.
 
 3. Después de discutir con los responsables del proyecto descubrimos que nos 
-faltaba conocer detalles del proceso generador de datos: el experimento se realizó asignando al azar un material a uno de los zapatos y el otro material al otro zapato de cada niño.
-¿Cómo incorporas esta información en la prueba de hipótesis del inciso 2? ¿Cambian
+faltaba conocer detalles del proceso generador de datos: el experimento se realizó asignando al azar un material a uno de los zapatos y el otro material al otro zapato de cada niño. ¿Cómo incorporas esta información en la prueba de hipótesis del inciso 2? ¿Cambian
 tus conclusiones?
 
-Nos cae como anillo al dedo pues el contrafactual es muy legitimo: el otro zapato del mismo niño.
+Nos cae como anillo al dedo pues el contrafactual es muy legitimo: el otro zapato del mismo niño. Sin embargo, no cambian nuestras conclusiones. Al contrario, las sostenemos de manera más fuerte pues ahora los argumentos que tenemos para no rechazar la hipótesis nula vienen de un diseño experimental.
 
 
 ## Bootstrap
@@ -271,35 +292,98 @@ necesitarás:
 
 ```{r}
 muestra <- read_delim("https://ine.mx/wp-content/uploads/2021/08/Conteos-ConsPop21-Lista-MuestraCalculo.txt", delim = "|", skip = 1) 
-muestra_tidy <- muestra |> 
+muestra_tidy <- muestra %>% 
   mutate(
     ID_ESTADO = str_pad(ID_ESTADO, 2, pad = "0"),
     SECCION = str_pad(SECCION, 4, pad = "0"),
     ID_CASILLA = str_pad(ID_CASILLA, 2, pad = "0"),
     ID = str_c(ID_ESTADO, SECCION, TIPO_CASILLA, ID_CASILLA)
-    ) |> 
-  group_by(ESTRATO) |> 
-  mutate(n = n()) |> 
+    ) %>%  
+  group_by(ESTRATO) %>% 
+  mutate(n = n()) %>%  
   ungroup()
 
 computos <- read_delim("datos/20210802-2130_INE-CONSULTA-POPULAR-2021/20210802-2130_COMPUTOS-INE-CP2021.csv", 
     delim = "|", escape_double = FALSE, trim_ws = TRUE, quote = "\'",
     skip = 5)
-computos <- computos |> 
-  rename(ID = CLAVE_MRCP) |> 
+computos <- computos %>%  
+  rename(ID = CLAVE_MRCP) %>%  
   mutate(ESTRATO = str_c(str_pad(ID_ENTIDAD, 2, pad = "0"), 
                          str_pad(ID_DISTRITO_FEDERAL, 2, pad = "0")),
          LISTA_NOMINAL = LISTA_NOMINAL_MRCP, 
-         TOTAL = TOTAL_OPINIONES)
+         TOTAL = TOTAL_OPINIONES) %>% filter(TOTAL_OPINIONES>0)#%>%  
+ # group_by(ESTRATO) %>% 
+ # mutate(n = n()) %>%  
+ # ungroup()
 ```
 
 1. Utiliza el estimador de razón combinado para estimar el voto en favor
 de cada opicón (sí/no/nulos).
 
+```{r}
+# A partir de la muestra:
+# No uso weights
+survey_sample <- muestra_tidy %>% 
+    as_survey_design(ids = ID,  strata = "ESTRATO") %>% 
+  mutate(p_si=SI/TOTAL,
+         p_no=NO/TOTAL,
+         p_nulo=NULOS/TOTAL)
+
+estadisticos_sample<-survey_sample %>%
+  summarize_at(vars(p_si, p_no,p_nulo), ~survey_mean(.))
+estadisticos_sample
+```
+
+
 2. Utiliza bootstrap para construir intervalos del 95% de confianza. Compara la longitud de los 3 intervalos y describe que observas.
 
-3. ¿Tus intervalos contienen los valores observados en los cómputos? Explica los
+```{r}
+# A partir de la muestra:
+set.seed(1111)
+intervalos_bootsrap<-
+  survey_sample %>% 
+    as_survey_rep(type = "subbootstrap", replicates = 500) %>%
+  srvyr::summarise(p_si = survey_mean(p_si, vartype =  "ci"),
+                   p_no = survey_mean(p_no, vartype =  "ci"),
+                   p_nulo = survey_mean(p_nulo, vartype =  "ci"))
+# El CI a priori es del 95% de confianza
+# ¿Con 500 replicates está bien?
+
+#Intervalos
+intervalos_bootsrap
+
+# Longitud de intervalo SI
+intervalos_bootsrap[3]-intervalos_bootsrap[2]
+# Longitud de intervalo NO
+intervalos_bootsrap[6]-intervalos_bootsrap[5]
+# Longitud de intervalo NULO
+intervalos_bootsrap[9]-intervalos_bootsrap[8]
+
+```
+
+Notamos que hay mayoría aplastante del SI, luego del NO y por último del NULO. Sin embargo en cuanto a la longitud del intervalo, el del SI y el NULO son similares en tamaño y un poco más amplios que el del NO que es muy pequeño.
+
+
+3. ¿Tus intervalos contienen los valores observados  en los cómputos? Explica los
 resultados observados.
+
+```{r}
+# A partir de la muestra:hts?
+# DUDA,¿QUe ponemos en weig
+survey_population <- computos %>% 
+    as_survey_design(ids = ID, strata = "ESTRATO") %>% 
+  mutate(p_si=OPINION_SI/TOTAL_OPINIONES,
+         p_no=OPINION_NO/TOTAL_OPINIONES,
+         p_nulo=NULOS/TOTAL_OPINIONES)
+
+estadisticos_pop<-survey_population %>%
+  summarise(p_si = survey_mean(p_si,na.rm = T),
+            p_no = survey_mean(p_no,na.rm = T),
+            p_nulo = survey_mean(p_nulo,na.rm = T))
+estadisticos_pop
+```
+
+En realidad solamente el intervalo del NO (que de hecho era el más acotado) contiene a su estimador.
 
 ### Calibración
 
@@ -307,8 +391,105 @@ Selecciona al menos 50 muestras del mismo tamaño y con el mismo diseño que la
 muestra utilizada en el conteo rápido. Esto es, selecciona el 
 mismo número de casillas, usando muestreo aleatorio simple dentro de cada estrato.
 
+```{r}
+
+# Primer paso, creo el codigo para recrear cada muestra estratificada
+#Creo catalogo de estrato y n
+strata_catalogue <- muestra_tidy %>%
+  group_by(ESTRATO) %>%
+  sample_n(size=1) %>% dplyr::select(ESTRATO,n)
+#Agrego n a computo
+computos<-merge(computos,strata_catalogue, by="ESTRATO")
+
+```
+
+```{r}
+#Creo el codigo para recrear 1 muestra
+# si corro esto 50 veces obtengo 50 muestras
+stratified <- computos %>%
+  group_by(ESTRATO) %>%
+  sample_n(size=n,replace = T)
+
+```
+
 * Para cada muestra calcula un intervalo del 95% de confianza usando bootstrap.
+```{r}
+
+crea_muestra_e_intervalo_bootrsap<-function(){
+#Creo el codigo para recrear 1 muestra
+stratified <- computos %>%
+  group_by(ESTRATO) %>%
+  sample_n(size=n,replace = T)
+
+survey_sample <- stratified %>% 
+    as_survey_design(ids = ID,  strata = "ESTRATO") %>% 
+  mutate(p_si=OPINION_SI/TOTAL_OPINIONES,
+         p_no=OPINION_NO/TOTAL_OPINIONES,
+         p_nulo=NULOS/TOTAL_OPINIONES)
+
+intervalos_bootsrap<-
+  survey_sample %>% 
+  #Usamos solo 50 replicates para no tardar tanto
+    as_survey_rep(type = "subbootstrap", replicates = 50) %>%
+  srvyr::summarise(p_si = survey_mean(p_si, vartype =  "ci"),
+                   p_no = survey_mean(p_no, vartype =  "ci"),
+                   p_nulo = survey_mean(p_nulo, vartype =  "ci"))
+intervalos_bootsrap
+}
+
+intervalos_muestras<-data.frame(sapply(seq_len(50), function(x) crea_muestra_e_intervalo_bootrsap()))
+intervalos_muestras<-as.data.frame(t(intervalos_muestras)) %>% mutate(id=row_number())
+intervalos_muestras[1:10] <- sapply(intervalos_muestras[1:10],as.numeric)
+kable(intervalos_muestras)
+```
 
 * Grafica los intervalos y calcula la proporción de ellos que contienen el 
 verdadero valor observado. Describe tus observaciones (evalúa la calibración, 
 compara con el intervalo obtenido en el ejercicio anterior).
+
+```{r}
+
+# Proporción SI
+ggplot(intervalos_muestras, aes(id,p_si)) + 
+  geom_point() +
+  geom_errorbar(aes(ymin = p_si_low, ymax = p_si_upp))+ geom_hline(aes(yintercept=estadisticos_pop$p_si),
+            color="blue", linetype="dashed", size=1)
+
+#Proporcion
+p<-intervalos_muestras[1:3] %>% 
+  mutate(dentro=ifelse(estadisticos_pop$p_si>p_si_low &estadisticos_pop$p_si<p_si_upp,1,0 ))
+sum(p$dentro)/nrow(intervalos_muestras)
+
+```
+
+```{r}
+
+# Proporción NO
+ggplot(intervalos_muestras, aes(id,p_no)) + 
+  geom_point() +
+  geom_errorbar(aes(ymin = p_no_low, ymax = p_no_upp))+ geom_hline(aes(yintercept=estadisticos_pop$p_no),
+            color="blue", linetype="dashed", size=1)
+
+#Proporcion
+p<-intervalos_muestras[4:6] %>% 
+  mutate(dentro=ifelse(estadisticos_pop$p_no>p_no_low &estadisticos_pop$p_no<p_no_upp,1,0 ))
+sum(p$dentro)/nrow(intervalos_muestras)
+
+```
+
+```{r}
+
+# Proporción NULO
+ggplot(intervalos_muestras, aes(id,p_nulo)) + 
+  geom_point() +
+  geom_errorbar(aes(ymin = p_nulo_low, ymax = p_nulo_upp))+ geom_hline(aes(yintercept=estadisticos_pop$p_nulo),
+            color="blue", linetype="dashed", size=1)
+
+#Proporcion
+p<-intervalos_muestras[7:9] %>% 
+  mutate(dentro=ifelse(estadisticos_pop$p_nulo>p_nulo_low &estadisticos_pop$p_nulo<p_nulo_upp,1,0 ))
+sum(p$dentro)/nrow(intervalos_muestras)
+
+```
+
+Reflexion: Para que realmente estos intervalos sean útiles y atrapen al estimador la mayoría de las veces, debemos aceptar que deben ser más amplios. En el ejercicio anterior ocurrio que no estabamos capturando 2 de los 3 estadísticos porque el intervalo de confianza está ajustado con un valor p del .05 lo que hace que sean intervalos muy estrechos.
