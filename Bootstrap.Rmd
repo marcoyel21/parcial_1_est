@@ -1,0 +1,103 @@
+---
+title: "Bootstrap"
+author: "RG"
+date: "2022-10-11"
+output: html_document
+---
+
+```{r}
+library(rsample)
+library(tidyverse)
+library(survey)
+library(srvyr)
+```
+
+DATOS
+
+```{r}
+muestra <- read_delim("https://ine.mx/wp-content/uploads/2021/08/Conteos-ConsPop21-Lista-MuestraCalculo.txt", delim = "|", skip = 1) 
+muestra_tidy <- muestra |> 
+  mutate(
+    ID_ESTADO = str_pad(ID_ESTADO, 2, pad = "0"),
+    SECCION = str_pad(SECCION, 4, pad = "0"),
+    ID_CASILLA = str_pad(ID_CASILLA, 2, pad = "0"),
+    ID = str_c(ID_ESTADO, SECCION, TIPO_CASILLA, ID_CASILLA)
+  ) |> 
+  group_by(ESTRATO) |> 
+  mutate(n = n()) |> 
+  ungroup()
+
+computos <- read_delim("C:/Users/Ricardo/Desktop/Fundamentos/datos/20210802-2130_INE-CONSULTA-POPULAR-2021/20210802-2130_COMPUTOS-INE-CP2021.csv", 
+                       delim = "|", escape_double = FALSE, trim_ws = TRUE, quote = "\'",
+                       skip = 5)
+computos <- computos |> 
+  rename(ID = CLAVE_MRCP) |> 
+  mutate(ESTRATO = str_c(str_pad(ID_ENTIDAD, 2, pad = "0"), 
+                         str_pad(ID_DISTRITO_FEDERAL, 2, pad = "0")),
+         LISTA_NOMINAL = LISTA_NOMINAL_MRCP, 
+         TOTAL = TOTAL_OPINIONES)
+```
+
+#1. Utiliza el estimador de razón combinado para estimar el voto  en favor de cada opción (sí/no/nulos).
+
+```{r}
+#Creo un dataframe que me indique el conteo por estrato y del dataframe 
+#muestra_tidy uno la variable n que fue el conteo del estrato creado al inicio.
+df_EstTot <- computos %>% 
+  dplyr::group_by(ESTRATO)  %>% 
+  dplyr::summarise(N = n())  %>% 
+  dplyr::left_join(muestra_tidy  %>% 
+              dplyr::select(ESTRATO, n), by = "ESTRATO") %>% 
+  distinct()
+```
+
+
+ESTIMADOR
+
+```{r}
+#Creamos el estimador, tomamos como referencia el código la tarea 7
+estimador_razon <- function(split, ...){
+  muestra <- analysis(split)
+  
+  muestra %>% 
+    #Primero elijo las variables que usaremos para el calculo del estimador
+    select(ESTRATO, ID, SI:TOTAL) %>%  
+    pivot_longer(names_to = "categoria",
+                 values_to = "No_votos",
+                 cols = SI:NULOS) %>%
+    group_by(ESTRATO, categoria) %>% 
+    summarise(Y = sum(No_votos),
+              X = sum(TOTAL)) %>% 
+    left_join(df_EstTot, by = "ESTRATO") %>%
+    group_by(categoria) %>% 
+    summarise(estimador = 100 * sum(N / n * Y) / sum(N / n * X)) %>% 
+    rename(term = categoria ) %>%  rename(estimate = estimador ) #Para que funcionen los intervalos
+}
+
+```
+
+Estimamos los bootstrap
+
+```{r}
+#Estimamos los bootstrap
+#Los codigos fueron ajustados de algunos ejemplos de las notas 5
+
+#Agrupamos por estrato
+muestra_estratificada <- muestra_tidy %>% 
+  dplyr::group_by(ESTRATO) 
+
+dist_boot <- bootstraps(muestra_estratificada,  1000) %>% 
+  mutate(res_boot = map(splits, estimador_razon)) 
+```
+
+# 2. Utiliza bootstrap para construir intervalos del 95% de confianza. Compara la longitud de los 3 intervalos y describe que observas.
+```{r}
+intervalos <- dist_boot %>%  
+  int_pctl(res_boot, alpha = 0.05) %>%
+  mutate(across(where(is.numeric), round, 2)) %>% 
+  select(term, .lower, .upper)
+print(intervalos)
+```
+
+#3. ¿Tus intervalos contienen los valores observados en los cómputos?  Explica los resultados observados.
+
